@@ -1,0 +1,6 @@
+[submodule "nozzle"]
+	path = nozzle
+	url = git@github.com:nozzle-io/nozzle.git
+[submodule "deps/ffgl"]
+	path = deps/ffgl
+	url = https://github.com/resolume/ffgl.git

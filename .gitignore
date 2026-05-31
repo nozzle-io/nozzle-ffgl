@@ -1,0 +1,5 @@
+build/
+package/
+*.zip
+*.txt
+.DS_Store
