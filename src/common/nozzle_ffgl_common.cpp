@@ -13,18 +13,6 @@ std::string non_empty_or_default(const std::string &value, const char *fallback)
     return fallback ? std::string{fallback} : std::string{};
 }
 
-uint32_t clamp_dimension(float value, uint32_t fallback) {
-    if (!std::isfinite(value)) {
-        return fallback;
-    }
-    if (value < 1.0f) {
-        return fallback;
-    }
-    constexpr float maximum_dimension = 16384.0f;
-    float clamped_value = std::min(value, maximum_dimension);
-    return static_cast<uint32_t>(std::lround(clamped_value));
-}
-
 uint64_t clamp_timeout_ms(float value) {
     if (!std::isfinite(value) || value < 0.0f) {
         return 0;

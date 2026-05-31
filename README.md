@@ -47,7 +47,8 @@ Restart the host after copying plugins.
 
 - `Sender`: nozzle sender name, default `nozzle`.
 - `TimeoutMs`: frame acquisition timeout, clamped to 0..1000 ms.
-- `Width` / `Height`: disconnected fallback size. The first-pass fallback is black output.
+
+Disconnected or unsupported input produces black output in the host-provided FFGL framebuffer. The first pass does not expose fallback size controls because FFGL source output dimensions are host/viewport controlled.
 
 ### NozzleSend
 

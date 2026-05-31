@@ -45,13 +45,9 @@ public:
     {
         sender_name_param_ = ffglqs::ParamText::create("Sender", nozzle_ffgl::receive_sender_default);
         timeout_ms_param_ = ffglqs::ParamRange::CreateInteger("TimeoutMs", 0, ffglqs::ParamRange::Range(0.0f, 1000.0f));
-        fallback_width_param_ = ffglqs::ParamRange::CreateInteger("Width", static_cast<int>(nozzle_ffgl::fallback_width_default), ffglqs::ParamRange::Range(1.0f, 16384.0f));
-        fallback_height_param_ = ffglqs::ParamRange::CreateInteger("Height", static_cast<int>(nozzle_ffgl::fallback_height_default), ffglqs::ParamRange::Range(1.0f, 16384.0f));
 
         AddParam(sender_name_param_);
         AddParam(timeout_ms_param_);
-        AddParam(fallback_width_param_);
-        AddParam(fallback_height_param_);
     }
 
     FFResult InitGL(const FFGLViewportStruct *view_port) override {
@@ -172,18 +168,12 @@ private:
     }
 
     void draw_fallback(const ProcessOpenGLStruct *process_data) {
-        uint32_t width = nozzle_ffgl::clamp_dimension(fallback_width_param_->GetValue(), nozzle_ffgl::fallback_width_default);
-        uint32_t height = nozzle_ffgl::clamp_dimension(fallback_height_param_->GetValue(), nozzle_ffgl::fallback_height_default);
-        (void)width;
-        (void)height;
         nozzle_ffgl::bind_ffgl_output_framebuffer(process_data);
         nozzle_ffgl::clear_current_framebuffer_black();
     }
 
     std::shared_ptr<ffglqs::ParamText> sender_name_param_{};
     std::shared_ptr<ffglqs::ParamRange> timeout_ms_param_{};
-    std::shared_ptr<ffglqs::ParamRange> fallback_width_param_{};
-    std::shared_ptr<ffglqs::ParamRange> fallback_height_param_{};
     nozzle::receiver receiver_{};
     std::string receiver_name_{};
     ffglex::FFGLShader shader_{};

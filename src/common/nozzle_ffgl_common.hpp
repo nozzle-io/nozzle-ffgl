@@ -14,11 +14,8 @@ namespace nozzle_ffgl {
 constexpr const char *application_name_default = "FFGL";
 constexpr const char *receive_sender_default = "nozzle";
 constexpr const char *send_sender_default = "nozzle_ffgl";
-constexpr uint32_t fallback_width_default = 1280;
-constexpr uint32_t fallback_height_default = 720;
 
 std::string non_empty_or_default(const std::string &value, const char *fallback);
-uint32_t clamp_dimension(float value, uint32_t fallback);
 uint64_t clamp_timeout_ms(float value);
 nozzle::texture_origin texture_origin_from_top_left(bool top_left_enabled);
 

@@ -35,6 +35,10 @@ target_link_libraries(nozzle_ffgl_common PUBLIC nozzle)
 target_compile_definitions(nozzle_ffgl_common PUBLIC
     $<$<PLATFORM_ID:Darwin>:GL_SILENCE_DEPRECATION=1>
 )
+target_compile_options(nozzle_ffgl_common PRIVATE
+    $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fno-exceptions>
+    $<$<CXX_COMPILER_ID:MSVC>:/EHs-c->
+)
 
 function(add_nozzle_ffgl_plugin target_name source_file bundle_identifier)
     add_library(${target_name} MODULE
@@ -53,8 +57,9 @@ function(add_nozzle_ffgl_plugin target_name source_file bundle_identifier)
     target_compile_options(${target_name} PRIVATE
         $<$<CXX_COMPILER_ID:Clang,AppleClang>:-Wno-deprecated-declarations>
         $<$<CXX_COMPILER_ID:Clang,AppleClang>:-Wno-unused-variable>
+        $<$<CXX_COMPILER_ID:Clang,AppleClang>:-fno-exceptions>
         $<$<CXX_COMPILER_ID:MSVC>:/W3>
-        $<$<CXX_COMPILER_ID:MSVC>:/EHsc>
+        $<$<CXX_COMPILER_ID:MSVC>:/EHs-c->
     )
 
     if(APPLE)
