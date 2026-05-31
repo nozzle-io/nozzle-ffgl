@@ -1,5 +1,9 @@
 build/
 package/
 *.zip
-*.txt
 .DS_Store
+package-contents.txt
+plugin-*.txt
+*.headers.txt
+*.exports.txt
+verify-package/
