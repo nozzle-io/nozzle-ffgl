@@ -67,11 +67,14 @@ public:
     }
 
     FFResult ProcessOpenGL(ProcessOpenGLStruct *process_data) override {
-        (void)process_data;
+        if (process_data == nullptr) {
+            return FF_FAIL;
+        }
+
         ensure_receiver();
 
         if (!receiver_.valid()) {
-            draw_fallback();
+            draw_fallback(process_data);
             return FF_SUCCESS;
         }
 
@@ -79,7 +82,7 @@ public:
         acquire_desc.timeout_ms = nozzle_ffgl::clamp_timeout_ms(timeout_ms_param_->GetValue());
         auto frame_result = receiver_.acquire_frame(acquire_desc);
         if (!frame_result.ok()) {
-            draw_fallback();
+            draw_fallback(process_data);
             return FF_SUCCESS;
         }
 
@@ -87,7 +90,7 @@ public:
         nozzle::frame_info info = frame.info();
         if (info.width == 0 || info.height == 0 || info.format != nozzle::texture_format::rgba8_unorm) {
             frame.release();
-            draw_fallback();
+            draw_fallback(process_data);
             return FF_SUCCESS;
         }
 
@@ -95,7 +98,7 @@ public:
             nozzle_ffgl::destroy_texture(texture_name_);
             if (!nozzle_ffgl::ensure_rgba8_texture(texture_name_, info.width, info.height)) {
                 frame.release();
-                draw_fallback();
+                draw_fallback(process_data);
                 return FF_SUCCESS;
             }
             texture_width_ = info.width;
@@ -111,14 +114,19 @@ public:
         texture_desc.format = nozzle::texture_format::rgba8_unorm;
         texture_desc.origin = nozzle_ffgl::texture_origin_from_top_left(top_left_enabled);
 
-        auto copy_result = nozzle::gl::copy_frame_to_gl_texture(frame, texture_desc);
+        nozzle::Result<void> copy_result{nozzle::Error{nozzle::ErrorCode::Unknown, "copy not attempted"}};
+        {
+            nozzle_ffgl::scoped_framebuffer_restore framebuffer_restore(process_data);
+            copy_result = nozzle::gl::copy_frame_to_gl_texture(frame, texture_desc);
+            framebuffer_restore.restore_ffgl_output();
+        }
         frame.release();
         if (!copy_result.ok()) {
-            draw_fallback();
+            draw_fallback(process_data);
             return FF_SUCCESS;
         }
 
-        draw_texture();
+        draw_texture(process_data);
         return FF_SUCCESS;
     }
 
@@ -153,7 +161,8 @@ private:
         }
     }
 
-    void draw_texture() {
+    void draw_texture(const ProcessOpenGLStruct *process_data) {
+        nozzle_ffgl::bind_ffgl_output_framebuffer(process_data);
         ffglex::ScopedShaderBinding shader_binding(shader_.GetGLID());
         ffglex::ScopedSamplerActivation sampler_activation(0);
         ffglex::Scoped2DTextureBinding texture_binding(texture_name_);
@@ -162,11 +171,12 @@ private:
         quad_.Draw();
     }
 
-    void draw_fallback() {
+    void draw_fallback(const ProcessOpenGLStruct *process_data) {
         uint32_t width = nozzle_ffgl::clamp_dimension(fallback_width_param_->GetValue(), nozzle_ffgl::fallback_width_default);
         uint32_t height = nozzle_ffgl::clamp_dimension(fallback_height_param_->GetValue(), nozzle_ffgl::fallback_height_default);
         (void)width;
         (void)height;
+        nozzle_ffgl::bind_ffgl_output_framebuffer(process_data);
         nozzle_ffgl::clear_current_framebuffer_black();
     }
 

@@ -145,8 +145,45 @@ jobs:
           name: ${{ steps.meta.outputs.package_root }}
           path: ${{ steps.meta.outputs.package_name }}
 
+
+  verify-windows-package:
+    needs: build-windows
+    runs-on: windows-2022
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Verify downloaded Windows package exports
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $package = Get-ChildItem -Path release-artifacts -Recurse -File -Filter '*windows-x64.zip' |
+            Sort-Object -Property FullName |
+            Select-Object -First 1
+          if ($null -eq $package) {
+            throw 'missing Windows release package artifact'
+          }
+          Expand-Archive -Path $package.FullName -DestinationPath verify-windows-package
+          foreach ($dllName in @('NozzleReceive.dll', 'NozzleSend.dll')) {
+            $dll = Get-ChildItem -Path verify-windows-package -Recurse -File -Filter $dllName |
+              Sort-Object -Property FullName |
+              Select-Object -First 1
+            if ($null -eq $dll) {
+              throw "missing $dllName in downloaded Windows package"
+            }
+            & dumpbin /headers $dll.FullName | Tee-Object -FilePath "$dllName.downloaded.headers.txt"
+            Select-String -Path "$dllName.downloaded.headers.txt" -Pattern 'DLL' | Select-Object -First 1
+            & dumpbin /exports $dll.FullName | Tee-Object -FilePath "$dllName.downloaded.exports.txt"
+            Select-String -Path "$dllName.downloaded.exports.txt" -Pattern '\bplugMain\b' | Select-Object -First 1
+          }
+
   release:
-    needs: [build-macos, build-windows]
+    needs: [build-macos, build-windows, verify-windows-package]
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
     runs-on: macos-latest
     permissions:

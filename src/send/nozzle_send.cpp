@@ -37,9 +37,14 @@ public:
         }
 
         if (publish_enabled_param_->GetValue() >= 0.5f) {
-            publish_input_texture(*process_data->inputTextures[0]);
+            {
+                nozzle_ffgl::scoped_framebuffer_restore framebuffer_restore(process_data);
+                publish_input_texture(*process_data->inputTextures[0]);
+                framebuffer_restore.restore_ffgl_output();
+            }
         }
 
+        nozzle_ffgl::bind_ffgl_output_framebuffer(process_data);
         return ffglqs::Effect::ProcessOpenGL(process_data);
     }
 
@@ -49,11 +54,11 @@ public:
     }
 
 private:
-    void ensure_sender() {
+    bool ensure_sender() {
         std::string requested_name = nozzle_ffgl::non_empty_or_default(sender_name_param_->text, nozzle_ffgl::send_sender_default);
         std::string requested_application = nozzle_ffgl::non_empty_or_default(application_name_param_->text, nozzle_ffgl::application_name_default);
         if (sender_.valid() && requested_name == sender_name_ && requested_application == application_name_) {
-            return;
+            return true;
         }
 
         sender_ = nozzle::sender{};
@@ -69,12 +74,24 @@ private:
         auto sender_result = nozzle::sender::create(sender_desc);
         if (sender_result.ok()) {
             sender_ = std::move(sender_result.value());
+            record_publish_status("sender ready");
+            return true;
         }
+
+        record_publish_status(std::string{"sender creation failed: "} + sender_result.error().message);
+        return false;
     }
 
     void publish_input_texture(const FFGLTextureStruct &input_texture) {
-        ensure_sender();
-        if (!sender_.valid() || input_texture.Handle == 0 || input_texture.Width == 0 || input_texture.Height == 0) {
+        if (!ensure_sender()) {
+            return;
+        }
+        if (!sender_.valid()) {
+            record_publish_status("sender is invalid");
+            return;
+        }
+        if (input_texture.Handle == 0 || input_texture.Width == 0 || input_texture.Height == 0) {
+            record_publish_status("input texture is invalid");
             return;
         }
 
@@ -87,7 +104,21 @@ private:
         texture_desc.format = nozzle::texture_format::rgba8_unorm;
         texture_desc.origin = nozzle_ffgl::texture_origin_from_top_left(top_left_enabled);
 
-        (void)nozzle::gl::publish_gl_texture(sender_, texture_desc);
+        auto publish_result = nozzle::gl::publish_gl_texture(sender_, texture_desc);
+        if (publish_result.ok()) {
+            record_publish_status("publish ok");
+        } else {
+            record_publish_status(std::string{"publish failed: "} + publish_result.error().message);
+        }
+    }
+
+    void record_publish_status(const std::string &status) {
+        if (status == last_publish_status_) {
+            return;
+        }
+        last_publish_status_ = status;
+        std::string message = std::string{"NozzleSend: "} + status;
+        FFGLLog::LogToHost(message.c_str());
     }
 
     std::shared_ptr<ffglqs::ParamText> sender_name_param_{};
@@ -96,6 +127,7 @@ private:
     nozzle::sender sender_{};
     std::string sender_name_{};
     std::string application_name_{};
+    std::string last_publish_status_{};
 };
 
 static CFFGLPluginInfo plugin_info(

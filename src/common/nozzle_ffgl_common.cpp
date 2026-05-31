@@ -82,9 +82,48 @@ void destroy_texture(GLuint &texture_name) {
     }
 }
 
+scoped_framebuffer_restore::scoped_framebuffer_restore(const ProcessOpenGLStruct *process_data) {
+    glGetIntegerv(GL_DRAW_FRAMEBUFFER_BINDING, &previous_draw_framebuffer_);
+    glGetIntegerv(GL_READ_FRAMEBUFFER_BINDING, &previous_read_framebuffer_);
+    if (process_data != nullptr) {
+        host_framebuffer_ = process_data->HostFBO;
+    }
+}
+
+scoped_framebuffer_restore::~scoped_framebuffer_restore() {
+    restore_previous();
+}
+
+void scoped_framebuffer_restore::restore_previous() const {
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, static_cast<GLuint>(previous_draw_framebuffer_));
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous_read_framebuffer_));
+}
+
+void scoped_framebuffer_restore::restore_ffgl_output() const {
+    GLuint draw_framebuffer = host_framebuffer_ != 0
+        ? host_framebuffer_
+        : static_cast<GLuint>(previous_draw_framebuffer_);
+    glBindFramebuffer(GL_DRAW_FRAMEBUFFER, draw_framebuffer);
+    glBindFramebuffer(GL_READ_FRAMEBUFFER, static_cast<GLuint>(previous_read_framebuffer_));
+}
+
+void bind_ffgl_output_framebuffer(const ProcessOpenGLStruct *process_data) {
+    if (process_data != nullptr && process_data->HostFBO != 0) {
+        glBindFramebuffer(GL_DRAW_FRAMEBUFFER, process_data->HostFBO);
+    }
+}
+
 void clear_current_framebuffer_black() {
+    GLfloat previous_clear_color[4]{};
+    glGetFloatv(GL_COLOR_CLEAR_VALUE, previous_clear_color);
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
+    glClearColor(
+        previous_clear_color[0],
+        previous_clear_color[1],
+        previous_clear_color[2],
+        previous_clear_color[3]
+    );
 }
 
 } // namespace nozzle_ffgl

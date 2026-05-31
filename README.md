@@ -121,3 +121,7 @@ nozzle-ffgl-<tag>-windows-x64.zip
 ```
 
 The release zips contain only the two plugin binaries plus `README.md`, `LICENSE`, and `THIRD-PARTY-NOTICES.md`.
+
+## Diagnostics
+
+`NozzleSend` reports sender creation and publish status changes through the FFGL host log callback when available. If a host does not expose FFGL plugin logs, use nozzle-viewer to verify whether a sender appears and keep the plugin status at CI-only until host smoke is recorded.
