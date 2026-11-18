@@ -104,7 +104,7 @@ int run(FF_Main_FuncPtr plugin) {
 int main(int argc, char** argv) {
     if (argc != 2) return fail("Expected NozzleReceive bundle executable path");
     const CGLPixelFormatAttribute attributes[]{kCGLPFAOpenGLProfile,
-        static_cast<CGLPixelFormatAttribute>(kCGLOGLPVersion_4_1_Core), static_cast<CGLPixelFormatAttribute>(0)};
+        static_cast<CGLPixelFormatAttribute>(kCGLOGLPVersion_GL4_Core), static_cast<CGLPixelFormatAttribute>(0)};
     CGLPixelFormatObj format{};
     GLint count{};
     auto error = CGLChoosePixelFormat(attributes, &format, &count);
