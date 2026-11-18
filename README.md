@@ -19,7 +19,7 @@ FFGL unique IDs are documented in [`docs/plugin-ids.md`](docs/plugin-ids.md): `N
 | Windows | CI build/package | x64 `.dll` | Functional CPU-copy bridge around the current nozzle OpenGL/D3D11 path. Not zero-copy. |
 | Linux | N/A | N/A | Out of scope for the Resolume-first FFGL pass. |
 
-Do not read CI status as real host validation. CI proves build shape, package contents, binary architecture, and exported FFGL entry points. Resolume loading/rendering is manual smoke evidence and is tracked separately.
+Do not read CI status as real host validation. CI checks build shape, package contents, binary architecture, and exported FFGL entry points. On macOS it also publishes a core GL texture, loads NozzleReceive, and checks its rendered pixels in an offscreen framebuffer. Resolume loading/rendering is manual smoke evidence and is tracked separately.
 
 ## Install
 
@@ -60,7 +60,7 @@ Disconnected or unsupported input produces black output in the host-provided FFG
 
 First pass is deliberately narrow:
 
-- Texture format claim: `rgba8_unorm` only.
+- The sender publishes `rgba8_unorm` host textures. The receiver accepts `rgba8_unorm` and `bgra8_unorm` storage and renders into RGBA8.
 - macOS: GPU-side transfer through CGL/IOSurface in nozzle.
 - Windows: CPU-copy bridge via the current nozzle OpenGL/D3D11 implementation. This is functional but not a low-latency zero-copy path.
 - 16F/32F and other host texture formats are not claimed.
