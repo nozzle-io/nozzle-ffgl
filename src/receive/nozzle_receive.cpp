@@ -84,7 +84,9 @@ public:
 
         nozzle::frame frame = std::move(frame_result.value());
         nozzle::frame_info info = frame.info();
-        if (info.width == 0 || info.height == 0 || info.format != nozzle::texture_format::rgba8_unorm) {
+        const bool supported_storage = info.format == nozzle::texture_format::rgba8_unorm ||
+                                       info.format == nozzle::texture_format::bgra8_unorm;
+        if (info.width == 0 || info.height == 0 || !supported_storage) {
             frame.release();
             draw_fallback(process_data);
             return FF_SUCCESS;
@@ -107,7 +109,9 @@ public:
         texture_desc.target = nozzle::gl::kGLTexture2D;
         texture_desc.width = info.width;
         texture_desc.height = info.height;
-        texture_desc.format = nozzle::texture_format::rgba8_unorm;
+        // The copy helper binds the source IOSurface or describes its staging bytes
+        // with this format. GL converts the channels into our RGBA8 destination.
+        texture_desc.format = info.format;
         texture_desc.origin = nozzle_ffgl::texture_origin_from_top_left(top_left_enabled);
 
         nozzle::Result<void> copy_result{nozzle::Error{nozzle::ErrorCode::Unknown, "copy not attempted"}};
