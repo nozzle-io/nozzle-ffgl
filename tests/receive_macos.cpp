@@ -1,7 +1,10 @@
 #include <ffgl/FFGL.h>
 #include <OpenGL/OpenGL.h>
+#include <OpenGL/CGLIOSurface.h>
+#include <nozzle/backends/metal.hpp>
 #include <nozzle/backends/opengl.hpp>
 #include <nozzle/receiver.hpp>
+#include <nozzle/pixel_access.hpp>
 
 #include <array>
 #include <cstdio>
@@ -36,6 +39,19 @@ FFMixed pointer(void* value) {
     return argument;
 }
 
+void report_texture(const char* stage, GLenum target, GLuint texture_name) {
+    pixels rgba{};
+    glBindTexture(target, texture_name);
+    glGetTexImage(target, 0, GL_RGBA, GL_UNSIGNED_BYTE, rgba.data());
+    const auto error = glGetError();
+    if (error != GL_NO_ERROR) {
+        std::fprintf(stderr, "%s readback error 0x%x\n", stage, error);
+        return;
+    }
+    std::printf("%s read as RGBA: %u %u %u %u / %u %u %u %u\n", stage,
+        rgba[0], rgba[1], rgba[2], rgba[3], rgba[4], rgba[5], rgba[6], rgba[7]);
+}
+
 int run(FF_Main_FuncPtr plugin) {
     nozzle::sender_desc desc{};
     desc.name = "ffgl-receive-" + std::to_string(getpid());
@@ -61,7 +77,6 @@ int run(FF_Main_FuncPtr plugin) {
     if (info.format != nozzle::texture_format::bgra8_unorm ||
         info.semantic_format != nozzle::texture_format::rgba8_unorm ||
         info.width != 2 || info.height != 1) return fail("Unexpected published frame metadata");
-    frame.value().release();
     std::puts("Core GL frame acquired: 2x1, semantic RGBA8, storage BGRA8");
 
     FFGLViewportStruct viewport{0, 0, 2, 1};
@@ -94,6 +109,51 @@ int run(FF_Main_FuncPtr plugin) {
             expected[i], expected[i+1], expected[i+2], expected[i+3],
             actual[i], actual[i+1], actual[i+2], actual[i+3]);
     }
+    if (actual != expected) {
+        // Diagnose the single published frame only after the host readback.
+        auto mapping = nozzle::lock_frame_pixels_mapping_with_origin(frame.value(), nozzle::texture_origin::top_left);
+        if (mapping.ok()) {
+            const auto& mapped = mapping.value().pixels();
+            if (mapped.data && mapped.width == 2 && mapped.height == 1 &&
+                mapped.format == nozzle::texture_format::bgra8_unorm) {
+                const auto* bytes = static_cast<const unsigned char*>(mapped.data);
+                std::printf("published BGRA bytes: %u %u %u %u / %u %u %u %u\n",
+                    bytes[0], bytes[1], bytes[2], bytes[3], bytes[4], bytes[5], bytes[6], bytes[7]);
+            } else {
+                std::fputs("Unexpected source mapping layout\n", stderr);
+            }
+            mapping.value().unlock();
+        } else {
+            std::fprintf(stderr, "Cannot inspect source bytes: %s\n", mapping.error().message.c_str());
+        }
+        auto diagnostic = source;
+        diagnostic.name = texture(nullptr);
+        diagnostic.format = info.format;
+        auto copy = nozzle::gl::copy_frame_to_gl_texture(frame.value(), diagnostic);
+        if (!copy.ok()) {
+            std::fprintf(stderr, "Core BGRA8 copy: %s\n", copy.error().message.c_str());
+        } else {
+            report_texture("Core BGRA8 copy", GL_TEXTURE_2D, diagnostic.name);
+        }
+        glDeleteTextures(1, &diagnostic.name);
+
+        auto surface = static_cast<IOSurfaceRef>(nozzle::metal::get_io_surface(frame.value().get_texture()));
+        if (surface) {
+            GLuint rectangle{};
+            glGenTextures(1, &rectangle);
+            glBindTexture(GL_TEXTURE_RECTANGLE, rectangle);
+            auto binding = CGLTexImageIOSurface2D(CGLGetCurrentContext(), GL_TEXTURE_RECTANGLE,
+                GL_RGBA8, 2, 1, GL_BGRA, GL_UNSIGNED_INT_8_8_8_8_REV, surface, 0);
+            std::printf("Packed BGRA IOSurface binding: %s\n", CGLErrorString(binding));
+            if (binding == kCGLNoError) {
+                report_texture("Packed binding", GL_TEXTURE_RECTANGLE, rectangle);
+            }
+            glDeleteTextures(1, &rectangle);
+        } else {
+            std::fputs("No source IOSurface\n", stderr);
+        }
+    }
+    frame.value().release();
     plugin(FF_DEINSTANTIATE_GL, {}, instance);
     plugin(FF_DEINITIALISE, {}, nullptr);
     return actual == expected ? 0 : fail("FFGL output differs from published pixels");
