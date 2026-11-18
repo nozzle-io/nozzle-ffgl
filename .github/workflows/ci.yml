@@ -37,6 +37,11 @@ jobs:
       - name: Build FFGL bundles
         run: cmake --build build --config RelWithDebInfo
 
+      - name: Check receiver pixels from a core GL publication
+        run: |
+          cmake --build build --target test_receive_macos
+          build/test_receive_macos build/NozzleReceive.bundle/Contents/MacOS/NozzleReceive
+
       - name: Verify build-tree bundles
         run: |
           set -euo pipefail

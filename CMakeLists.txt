@@ -93,3 +93,11 @@ endfunction()
 
 add_nozzle_ffgl_plugin(NozzleReceive src/receive/nozzle_receive.cpp org.nozzle-io.ffgl.receive)
 add_nozzle_ffgl_plugin(NozzleSend src/send/nozzle_send.cpp org.nozzle-io.ffgl.send)
+
+if(APPLE)
+    add_executable(test_receive_macos EXCLUDE_FROM_ALL tests/receive_macos.cpp)
+    target_include_directories(test_receive_macos PRIVATE "${FFGL_LIB_DIR}")
+    target_compile_definitions(test_receive_macos PRIVATE GL_SILENCE_DEPRECATION=1)
+    target_link_libraries(test_receive_macos PRIVATE nozzle "-framework OpenGL")
+    add_dependencies(test_receive_macos NozzleReceive)
+endif()
